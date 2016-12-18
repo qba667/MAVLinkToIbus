@@ -4,7 +4,10 @@
 #include <stdlib.h>
 #ifndef TELEMETRY_UTILS
 #define ToDeg(x) (x*57.2957795131)  // *180/pi
-#define ToRad(x) (x*0.01745329252)  // *pi/180
+#define ToRad(x) (x*0.01745329252)  // *pi/180 0,01745329252
+#define ToRadFromWGS84(x) (x*0.000000001745329252)
+
+
 boolean getBit(byte targetByte, byte bit) {
 	return (boolean) targetByte & (1 << bit);
 }
@@ -36,26 +39,27 @@ uint16_t divideBy1E7(uint32_t dividend)
 {
 	return (uint16_t)((((int64_t)dividend * 0xD6E0LU) >> 16) >> 23);
 }
-
 //source
 //https://github.com/kevinkessler/TelemetryBridge/blob/master/main.c
 //return 1 when minus sign
-uint8_t parseCoord(uint8_t *deg, uint8_t *min, uint8_t *sec, uint8_t *subSec, int32_t coord)
+uint8_t parseCoord(uint8_t *deg, uint8_t *min, uint8_t *sec, uint16_t *subSec, int32_t coord)
 {
+	uint32_t fullPart = 0;
 	uint8_t retval = 0;
 	if (coord < 0)
 	{
 		coord = -coord;
 		retval = 1;
 	}
-
 	*deg = divideBy1E7(coord);
-	uint32_t minPart = coord - *deg * 1E7;
-	*min = divideBy1E7(minPart * 60);
-	uint32_t secPart = minPart * 60 - *min * 1E7;
-	*sec = divideBy1E7(secPart * 100);
-	uint32_t subSecPart = secPart * 100 - *sec * 1E7;
-	*subSec = divideBy1E7(subSecPart * 100);
+	coord -= *deg * 10000000;
+	coord *= 60;
+	*min = divideBy1E7(coord);
+	coord -= *min * 10000000;
+	coord *= 60;
+	*sec = divideBy1E7(coord);
+	coord -= *sec * 10000000;
+	*subSec = coord/10000;
 	return retval;
 
 }

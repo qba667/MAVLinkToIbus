@@ -1,4 +1,4 @@
-
+﻿
 //Ghettostation / GhettoProxy / Mavlink.cpp
 //gpsParsing 
 //https://github.com/kevinkessler/TelemetryBridge/blob/master/main.c
@@ -13,6 +13,7 @@
 #include "IBUSTelemetry.h"
 #include "TelemetryUtils.h"
 #include "mavlink_types.h"
+#include "math.h"
 //WARNING!!!
 //To use AltSoftSerial on Micro with USB definition must be changed for 
 //#elif defined(ARDUINO_AVR_YUN) || defined(ARDUINO_AVR_LEONARDO) || defined(__AVR_ATmega32U4__)
@@ -95,6 +96,7 @@ int16_t heading; // 0..360 deg, 0=north
 uint16_t throttle;
 int16_t alt;
 int16_t climb;
+int16_t dist;
 
 mavlink_message_t msg;
 mavlink_status_t status;
@@ -103,6 +105,52 @@ int32_t firstLat;
 int32_t firstLon;
 int32_t firstAltGps;
 
+double meanRadius = 6371008.0;
+uint32_t equatorialLen = 111196672;
+uint32_t currentLen = 0;
+uint32_t singleUnitInMmForLon = divideBy1E7(equatorialLen);
+uint32_t singleUnitInMmForLat = 0;
+//using trigonometric functions good for bigger differences
+/*
+uint16_t getDistnace(int32_t lat1, int32_t lon1, int32_t lat2, int32_t lon2) {
+	if (lat == lat2 && lon == lon2) return 0.0;	
+	double latD = (double)ToRadFromWGS84(lat1);
+	double lonD = (double)ToRadFromWGS84(lon1);
+
+	double latD2 = (double)ToRadFromWGS84(lat2);
+	double lonD2 = (double)ToRadFromWGS84(lon2);
+
+
+	double acosArg = sin(latD)*sin(latD2) + cos(latD) *cos(latD2) * cos(lonD - lonD2);
+	double dist = 0.0;
+	if (tmp < 1) dist = meanRadius * acos(acosArg);
+	return (uint16_t)dist;
+}*/
+
+
+uint16_t getDistnace(int32_t lat1, int32_t lon1, int32_t lat2, int32_t lon2) {
+
+	if (currentLen == 0 || singleUnitInMmForLat==0) {
+		currentLen = (uint32_t)ceil(cos((double)((lat1 + lat2) / 2) * 0.000000001745329252) * equatorialLen);
+		singleUnitInMmForLat = divideBy1E7(currentLen);
+	}
+
+	uint32_t diffLat = 0;
+	if (lat2 > lat1) diffLat = lat2 - lat1;
+	else diffLat = lat1 - lat2;
+
+	uint32_t diffLon = 0;
+	if (lon2 > lon1) diffLon = lon2 - lon1;
+	else diffLon = lon1 - lon2;
+
+	diffLon *= singleUnitInMmForLon;
+	diffLat *= singleUnitInMmForLat;
+	//convert to m
+	diffLon = diffLon / 1000;
+	diffLat = diffLat / 1000;
+	//sqrt(a^2 +b^2)
+	return (uint16_t)ceil(sqrt(diffLon * diffLon + diffLat * diffLat));
+}
 
 
 #ifdef DEBUG
@@ -188,34 +236,55 @@ void handeMavlink() {
 			fixType = mavlink_msg_gps_raw_int_get_fix_type(&msg);
 			satellitesVisible = mavlink_msg_gps_raw_int_get_satellites_visible(&msg);
 			cog = mavlink_msg_gps_raw_int_get_cog(&msg); //cog Course over ground(NOT heading, but direction of movement) in degrees * 100, 0.0..359.99 degrees.
+			
 			if (!GPS_set && fixType > GPS_FIX_TYPE_NO_FIX && satellitesVisible >=6) {
 				GPS_set = 1;
 				firstAltGps = altGPS;
 				firstLat = lat;
 				firstLon = lon;
 			}
+
+			//getDistnace(firstLat, firstLon, lat, lon);
+			Serial.println("s: ");
+			Serial.println(satellitesVisible);
+			dist = getDistnace(lat, lon, firstLat, firstLon);
+			Serial.print("lat: ");
+			Serial.println(lat);
+			Serial.print("lon: ");
+			Serial.println(lon);
+			Serial.print("dist: ");
+			Serial.println(dist);
 #ifdef DEBUG
 			uint8_t minus;
 			uint8_t deg;
 			uint8_t min;
 			uint8_t sec;
-			uint8_t subSec;
+			uint16_t subSec; //up to 999
 
 			minus = parseCoord(&deg, &min, &sec, &subSec, lat);
 
 			Serial.print(deg);
-			Serial.print('"');
+			Serial.print(' ');
 			Serial.print(min);
 			Serial.print('\'');
-			Serial.println(sec);
+			Serial.print(sec);
+			Serial.print('.');
+			Serial.print(subSec);
+			Serial.println('"');
+
 
 			minus = parseCoord(&deg, &min, &sec, &subSec, lon);
 
 			Serial.print(deg);
-			Serial.print('"');
+			Serial.print(' ');
 			Serial.print(min);
 			Serial.print('\'');
-			Serial.println(sec);
+			Serial.print(sec);
+			Serial.print('.');
+			Serial.print(subSec);
+			Serial.println('"');
+
+
 			Serial.print("lat: ");
 			Serial.println(lat);
 			Serial.print("lon: ");
@@ -361,6 +430,8 @@ void setTelemetryValueToBuffer(uint8_t* buffer, uint8_t sensorType, uint8_t leng
 		buffer[1] = satellitesVisible;
 		break;
 	case IBUS_MEAS_TYPE_GPS_DIST:
+		buffer[0] = LBYTE(dist);
+		buffer[1] = HBYTE(dist);
 		break;
 	case IBUS_MEAS_TYPE_VERTICAL_SPEED:
 		buffer[0] = LBYTE(airspeed);

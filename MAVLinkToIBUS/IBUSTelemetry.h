@@ -159,10 +159,10 @@ IBUS_SENSOR sensorsList[] = {
 	//{.type = IBUS_MEAS_TYPE_BAT_CURR,		.payloadSize = 2,.address = 0 },
 	{.type = IBUS_MEAS_TYPE_CLIMB_RATE,		.payloadSize = 2,.address = 0 },
 	{.type = IBUS_MEAS_TYPE_CMP_HEAD,		.payloadSize = 2,.address = 0 },
-	//{.type = IBUS_MEAS_TYPE_ARMED,			.payloadSize = 2,.address = 0 },
+	//{.type = IBUS_MEAS_TYPE_ARMED,		.payloadSize = 2,.address = 0 },
 	{.type = IBUS_MEAS_TYPE_GPS_STATUS,		.payloadSize = 2,.address = 0 },
 	//{.type = IBUS_MEAS_TYPE_PRES,			.payloadSize = 2,.address = 0 },
-	
+	{.type = IBUS_MEAS_TYPE_GPS_DIST,		.payloadSize = 2,.address = 0 }
 };
 
 uint8_t sensors = sizeof(sensorsList) / sizeof(IBUS_SENSOR);
