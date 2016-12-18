@@ -204,10 +204,16 @@ void handeMavlink() {
 */
 			if (flightMode == 16) flightMode = 8;
 
-			
 			mavType = mavlink_msg_heartbeat_get_type(&msg);
 			baseMode = mavlink_msg_heartbeat_get_base_mode(&msg);
 			motorArmed = baseMode & MAV_MODE_FLAG_SAFETY_ARMED;
+			if (!motorArmed && GPS_set) { //reset start position
+				GPS_set = 0;
+				firstAltGps = 0;
+				firstLat = 0;
+				firstLon = 0;
+			}
+
 #ifdef DEBUG
 			Serial.print("flightMode: ");
 			Serial.println(flightMode);
@@ -237,23 +243,14 @@ void handeMavlink() {
 			satellitesVisible = mavlink_msg_gps_raw_int_get_satellites_visible(&msg);
 			cog = mavlink_msg_gps_raw_int_get_cog(&msg); //cog Course over ground(NOT heading, but direction of movement) in degrees * 100, 0.0..359.99 degrees.
 			
-			if (!GPS_set && fixType > GPS_FIX_TYPE_NO_FIX && satellitesVisible >=6) {
+			if (motorArmed && !GPS_set && fixType > GPS_FIX_TYPE_NO_FIX && satellitesVisible >=6) {
 				GPS_set = 1;
 				firstAltGps = altGPS;
 				firstLat = lat;
 				firstLon = lon;
 			}
-
-			//getDistnace(firstLat, firstLon, lat, lon);
-			Serial.println("s: ");
-			Serial.println(satellitesVisible);
-			dist = getDistnace(lat, lon, firstLat, firstLon);
-			Serial.print("lat: ");
-			Serial.println(lat);
-			Serial.print("lon: ");
-			Serial.println(lon);
-			Serial.print("dist: ");
-			Serial.println(dist);
+			if(GPS_set && motorArmed) dist = getDistnace(lat, lon, firstLat, firstLon);
+			else dist = 0;
 #ifdef DEBUG
 			uint8_t minus;
 			uint8_t deg;
@@ -289,6 +286,8 @@ void handeMavlink() {
 			Serial.println(lat);
 			Serial.print("lon: ");
 			Serial.println(lon);
+			Serial.print("dist: ");
+			Serial.println(dist);
 			Serial.print("fixType: ");
 			Serial.println(fixType);
 			Serial.print("satellitesVisible: ");
