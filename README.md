@@ -43,6 +43,7 @@ Working definition:
 ```
 As input capture pin 4 must be used and as output compare pin 9 must be used.
 
-In file IBUSTelemetry.h sensors can be configured. It is possible to define up to 0xF sensors. All already defined 2 bytes sensors (everything but not GPS) should works with RX patched using bin file from i6 directory.
-
+In file IBUSTelemetry.h sensors can be configured. It is possible to define up to 0xF sensors. 
+Always use latest firmware for I6 from:
+https://www.rcgroups.com/forums/showthread.php?2486545-FlySky-FS-i6-8-channels-firmware-patch%21/page129
 
