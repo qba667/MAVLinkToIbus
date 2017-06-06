@@ -44,7 +44,6 @@ uint16_t divideBy1E7(uint32_t dividend)
 //return 1 when minus sign
 uint8_t parseCoord(uint8_t *deg, uint8_t *min, uint8_t *sec, uint16_t *subSec, int32_t coord)
 {
-	uint32_t fullPart = 0;
 	uint8_t retval = 0;
 	if (coord < 0)
 	{

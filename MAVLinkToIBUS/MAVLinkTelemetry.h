@@ -32,6 +32,7 @@ static inline void comm_send_ch(mavlink_channel_t chan, uint8_t ch) {
 #endif
 #define MAVLINK_USE_CONVENIENCE_FUNCTIONS
 #include "common\mavlink.h"
+
 void mavlinkTelemetryInit() {
 	altSerial.begin(57600);
 	mavlink_system.sysid = 100; // System ID, 1-255
@@ -44,13 +45,12 @@ uint16_t streamMessages[] = {
 	MAVLINK_MSG_ID_ATTITUDE,
 	MAVLINK_MSG_ID_SCALED_PRESSURE,
 	MAVLINK_MSG_ID_VFR_HUD,
-#ifdef DEBUG
 	MAVLINK_MSG_ID_SCALED_IMU,
+	MAVLINK_MSG_ID_BATTERY_STATUS,
+#ifdef DEBUG
+	
 	MAVLINK_MSG_ID_NAV_CONTROLLER_OUTPUT,
-
-#endif // DEBUG
-
-
+#endif
 };
 
 uint32_t heartBeat = 0;
@@ -80,13 +80,21 @@ int16_t pitch;
 int16_t roll;
 int16_t yaw;
 
+//MAVLINK_MSG_SCALED_IMU
+int16_t accx;
+int16_t accy;
+int16_t accz;
+//voltage
+uint16_t voltages[MAVLINK_MSG_BATTERY_STATUS_FIELD_VOLTAGES_LEN];
+
+
 //MAVLINK_MSG_ID_NAV_CONTROLLER_OUTPUT
 //float nav_roll;
 //float nav_pitch;
 //float nav_bearing;
 
 //MAVLINK_MSG_ID_SCALED_PRESSURE
-int16_t pressure;
+int32_t pressure;
 int16_t temperature;
 
 //MAVLINK_MSG_ID_VFR_HUD
@@ -94,7 +102,7 @@ int16_t airspeed;
 int16_t groundspeed;
 int16_t heading; // 0..360 deg, 0=north
 uint16_t throttle;
-int16_t alt;
+int32_t alt;
 int16_t climb;
 int16_t dist;
 
@@ -110,6 +118,8 @@ uint32_t equatorialLen = 111196672;
 uint32_t currentLen = 0;
 uint32_t singleUnitInMmForLon = divideBy1E7(equatorialLen);
 uint32_t singleUnitInMmForLat = 0;
+
+
 //using trigonometric functions good for bigger differences
 /*
 uint16_t getDistnace(int32_t lat1, int32_t lon1, int32_t lat2, int32_t lon2) {
@@ -157,11 +167,143 @@ uint16_t getDistnace(int32_t lat1, int32_t lon1, int32_t lat2, int32_t lon2) {
 unsigned long timerStartMavlink = 0;
 unsigned long timeDiffMavlink = 0;
 unsigned long maxDiff = 0;
+#endif
+
+#define MAP_FLIGHT_MODE
+
+
+#ifdef MAP_FLIGHT_MODE
+#define MAP_FLIGHT_MODE_STABILIZE 0                     // hold level position
+#define MAP_FLIGHT_MODE_ACRO 1                          // rate control
+#define MAP_FLIGHT_MODE_ALT_HOLD 2                      // Altitude Hold
+#define MAP_FLIGHT_MODE_AUTO 3                          // Waypoint
+#define MAP_FLIGHT_MODE_GUIDED 4                        // Hold a single location from command
+#define MAP_FLIGHT_MODE_LOITER 5                        // Hold a single location
+#define MAP_FLIGHT_MODE_RTL 6                           // return to launch
+#define MAP_FLIGHT_MODE_CIRCLE 7                        // orbit around a single location
+#define MAP_FLIGHT_MODE_POSHOLD_IBUS	8               // position hold with manual override
+#define MAP_FLIGHT_MODE_LAND 9                          // Landing
+#define MAP_FLIGHT_MODE_OF_LOITER 10                    // Hold a single location using optical flow sensor
+#define MAP_FLIGHT_MODE_DRIFT 11                        // DRIFT mode (Note: 12 is no longer used)
+#define MAP_FLIGHT_MODE_SPORT 13                        // earth frame rate control
+#define MAP_FLIGHT_MODE_FLIP        14                  // flip the vehicle on the roll axis
+#define MAP_FLIGHT_MODE_AUTOTUNE    15                  // autotune the vehicle's roll and pitch gains
+#define MAP_FLIGHT_MODE_POSHOLD     16                  // position hold with manual override
+#endif
+
+void PrintFlightModeArm() {
+#ifdef DEBUG
+	Serial.print("flightMode: ");
+	Serial.println(flightMode);
+	Serial.print("motorArmed: ");
+	Serial.println(motorArmed);
+#endif
+}
+void PrintBattery() {
+#ifdef DEBUG
+	Serial.print("V: ");
+	Serial.println(voltage);
+	Serial.print("A: ");
+	Serial.println(currA);
+	Serial.print("bat: ");
+	Serial.println(batteryRemaining);
 #endif // DEBUG
+}
+void PrintGPS() {
+#ifdef DEBUG
+	uint8_t minus;
+	uint8_t deg;
+	uint8_t min;
+	uint8_t sec;
+	uint16_t subSec; //up to 999
+
+	minus = parseCoord(&deg, &min, &sec, &subSec, lat);
+
+	Serial.print(deg);
+	Serial.print(' ');
+	Serial.print(min);
+	Serial.print('\'');
+	Serial.print(sec);
+	Serial.print('.');
+	Serial.print(subSec);
+	Serial.println('"');
+
+
+	minus = parseCoord(&deg, &min, &sec, &subSec, lon);
+
+	Serial.print(deg);
+	Serial.print(' ');
+	Serial.print(min);
+	Serial.print('\'');
+	Serial.print(sec);
+	Serial.print('.');
+	Serial.print(subSec);
+	Serial.println('"');
+
+
+	Serial.print("lat: ");
+	Serial.println(lat);
+	Serial.print("lon: ");
+	Serial.println(lon);
+	Serial.print("dist: ");
+	Serial.println(dist);
+	Serial.print("fixType: ");
+	Serial.println(fixType);
+	Serial.print("satellitesVisible: ");
+	Serial.println(satellitesVisible);
+	Serial.print("cog: ");
+	Serial.println(cog);
+	Serial.print("altGPS: ");
+	Serial.println(altGPS);
+
+#endif
+}
+
+void PrintPos() {
+#ifdef DEBUG
+	Serial.print("pitch:");
+	Serial.println(pitch);
+	Serial.print("roll:");
+	Serial.println(roll);
+	Serial.print("roll:");
+	Serial.println(yaw);
+#endif
+}
+void PrintACC() {
+#ifdef DEBUG
+	Serial.print("accx:");
+	Serial.println(accx);
+	Serial.print("accy:");
+	Serial.println(accy);
+	Serial.print("accz:");
+	Serial.println(accz);
+#endif
+}
+void PrintPressure() {
+#ifdef DEBUG
+	Serial.print("pressure:");
+	Serial.println(pressure);
+	Serial.print("temperature:");
+	Serial.println(temperature);
+#endif
+}
+void PrintHUD(){
+#ifdef DEBUG
+	Serial.print("airspeed:");
+	Serial.println(airspeed);
+	Serial.print("groundspeed:");
+	Serial.println(groundspeed);
+	Serial.print("heading:");
+	Serial.println(heading);
+	Serial.print("alt:");
+	Serial.println(alt);
+	Serial.print("climb:");
+	Serial.println(climb);
+#endif
+}
 
 void handeMavlink() {
 	if (!altSerial.available()) return;
-
 #ifdef DEBUG
 	timerStartMavlink = micros();
 #endif
@@ -175,7 +317,9 @@ void handeMavlink() {
 		switch (msg.msgid)
 		{
 		case MAVLINK_MSG_ID_HEARTBEAT:
+#ifdef DEBUG
 			Serial.print("MAVLINK_MSG_ID_HEARTBEAT: ");
+#endif
 			if (++heartBeat > 3 && !messageRecieved) {
 				//0 as system id id broadcast
 				for (int i = 0; i < 0; i++) {
@@ -184,25 +328,7 @@ void handeMavlink() {
 				heartBeat = 0;
 			};
 			flightMode = mavlink_msg_heartbeat_get_custom_mode(&msg);
-			/*
-#define STABILIZE 0                     // hold level position
-#define ACRO 1                          // rate control
-#define ALT_HOLD 2                      // Altitude Hold
-#define AUTO 3                          // Waypoint
-#define GUIDED 4                        // Hold a single location from command
-#define LOITER 5                        // Hold a single location
-#define RTL 6                           // return to launch
-#define CIRCLE 7                        // orbit around a single location
-#define LAND 9                          // Landing
-#define OF_LOITER 10                    // Hold a single location using optical flow sensor
-#define DRIFT 11                        // DRIFT mode (Note: 12 is no longer used)
-#define SPORT 13                        // earth frame rate control
-#define FLIP        14                  // flip the vehicle on the roll axis
-#define AUTOTUNE    15                  // autotune the vehicle's roll and pitch gains
-#define POSHOLD     16                  // position hold with manual override
-.Stab....AHold...Loiter..RTL.....Auto....Acro....Land....PosHold
-*/
-			if (flightMode == 16) flightMode = 8;
+			if (flightMode == MAP_FLIGHT_MODE_POSHOLD) flightMode = MAP_FLIGHT_MODE_POSHOLD_IBUS;
 
 			mavType = mavlink_msg_heartbeat_get_type(&msg);
 			baseMode = mavlink_msg_heartbeat_get_base_mode(&msg);
@@ -213,27 +339,22 @@ void handeMavlink() {
 				firstLat = 0;
 				firstLon = 0;
 			}
-
-#ifdef DEBUG
-			Serial.print("flightMode: ");
-			Serial.println(flightMode);
-			Serial.print("motorArmed: ");
-			Serial.println(motorArmed);
-#endif
+			PrintFlightModeArm();
+			break;
+		case MAVLINK_MSG_ID_BATTERY_STATUS:
+			//Battery voltage of cells, in millivolts (1 = 1 millivolt). Cells above the valid cell count for this battery should have the UINT16_MAX value.
+			mavlink_msg_battery_status_get_voltages(&msg, (uint16_t *)voltages);
+			//Battery current, in 10*milliamperes (1 = 10 milliampere), -1: autopilot does not measure the current
+			mavlink_msg_battery_status_get_current_battery(&msg);
+			//Consumed charge, in milliampere hours (1 = 1 mAh), -1: autopilot does not provide mAh consumption estimate
+			mavlink_msg_battery_status_get_current_consumed(&msg);
+			//Remaining battery energy: (0%: 0, 100%: 100), -1: autopilot does not estimate the remaining battery
+			mavlink_msg_battery_status_get_battery_remaining(&msg);
 			break;
 		case MAVLINK_MSG_ID_SYS_STATUS:
 			voltage = divideBy10(mavlink_msg_sys_status_get_voltage_battery(&msg)); //in millivolts radio needs in 10*milliamperes
 			currA = mavlink_msg_sys_status_get_current_battery(&msg); //current, in 10*milliamperes (1 = 10 milliampere)
 			batteryRemaining = mavlink_msg_sys_status_get_battery_remaining(&msg); //(0%: 0, 100%: 100)
-#ifdef DEBUG
-			Serial.print("V: ");
-			Serial.println(voltage);
-			Serial.print("A: ");
-			Serial.println(currA);
-			Serial.print("bat: ");
-			Serial.println(batteryRemaining);
-#endif // DEBUG
-
 			break;
 		case MAVLINK_MSG_ID_GPS_RAW_INT:
 			lat = mavlink_msg_gps_raw_int_get_lat(&msg);	 // Latitude(WGS84), in degrees * 1E7
@@ -251,66 +372,13 @@ void handeMavlink() {
 			}
 			if(GPS_set && motorArmed) dist = getDistnace(lat, lon, firstLat, firstLon);
 			else dist = 0;
-#ifdef DEBUG
-			uint8_t minus;
-			uint8_t deg;
-			uint8_t min;
-			uint8_t sec;
-			uint16_t subSec; //up to 999
-
-			minus = parseCoord(&deg, &min, &sec, &subSec, lat);
-
-			Serial.print(deg);
-			Serial.print(' ');
-			Serial.print(min);
-			Serial.print('\'');
-			Serial.print(sec);
-			Serial.print('.');
-			Serial.print(subSec);
-			Serial.println('"');
-
-
-			minus = parseCoord(&deg, &min, &sec, &subSec, lon);
-
-			Serial.print(deg);
-			Serial.print(' ');
-			Serial.print(min);
-			Serial.print('\'');
-			Serial.print(sec);
-			Serial.print('.');
-			Serial.print(subSec);
-			Serial.println('"');
-
-
-			Serial.print("lat: ");
-			Serial.println(lat);
-			Serial.print("lon: ");
-			Serial.println(lon);
-			Serial.print("dist: ");
-			Serial.println(dist);
-			Serial.print("fixType: ");
-			Serial.println(fixType);
-			Serial.print("satellitesVisible: ");
-			Serial.println(satellitesVisible);
-			Serial.print("cog: ");
-			Serial.println(cog);
-			Serial.print("altGPS: ");
-			Serial.println(altGPS);
-
-#endif
+			PrintGPS();
 			break;
 		case MAVLINK_MSG_ID_ATTITUDE:
 			pitch = (int16_t)(ToDeg(mavlink_msg_attitude_get_pitch(&msg))*100.0);
 			roll =	(int16_t)(ToDeg(mavlink_msg_attitude_get_roll(&msg))*100.0);
-			yaw =	(int16_t)(ToDeg(mavlink_msg_attitude_get_yaw(&msg))*100.0);
-#ifdef DEBUG
-			Serial.print("pitch:");
-			Serial.println(pitch);
-			Serial.print("roll:");
-			Serial.println(roll);
-			Serial.print("roll:");
-			Serial.println(yaw);
-#endif
+			yaw = (int16_t)(ToDeg(mavlink_msg_attitude_get_yaw(&msg))*100.0);
+			PrintPos();
 			break;
 #ifdef DEBUG
 		case MAVLINK_MSG_ID_NAV_CONTROLLER_OUTPUT:
@@ -323,40 +391,28 @@ void handeMavlink() {
 			//aspd_error = mavlink_msg_nav_controller_output_get_aspd_error(&msg);
 			//xtrack_error = mavlink_msg_nav_controller_output_get_xtrack_error(&msg);
 			break;
+#endif
 		case MAVLINK_MSG_ID_SCALED_IMU:
+			accx = (uint16_t)((double)mavlink_msg_scaled_imu_get_xacc(&msg) * 98.0665);
+			accy = (uint16_t)((double)mavlink_msg_scaled_imu_get_yacc(&msg) * 98.0665);
+			accz = (uint16_t)((double)mavlink_msg_scaled_imu_get_zacc(&msg) * 98.0665);
+			PrintACC();
 			break;
-#endif
-
 		case MAVLINK_MSG_ID_SCALED_PRESSURE:
-			pressure = (int16_t)(round(mavlink_msg_scaled_pressure_get_press_abs(&msg))); //hectopascal 
+			pressure = (int32_t)(round(mavlink_msg_scaled_pressure_get_press_abs(&msg) *100)); //hectopascal 
 			temperature = divideBy10(mavlink_msg_scaled_pressure_get_temperature(&msg)); // Temperature measurement (0.01 degrees celsius)
-#ifdef DEBUG
-			Serial.print("pressure:");
-			Serial.println(pressure);
-			Serial.print("temperature:");
-			Serial.println(temperature);
-#endif
+			PrintPressure();
 			break;
 		case MAVLINK_MSG_ID_VFR_HUD:
 			airspeed = (uint16_t)(round(mavlink_msg_vfr_hud_get_airspeed(&msg)*100.0)); //m/s  *100
 			groundspeed = (uint16_t)(round(mavlink_msg_vfr_hud_get_groundspeed(&msg)*100.0)); //m/s *100
 			heading = mavlink_msg_vfr_hud_get_heading(&msg); // 0..360 deg, 0=north
 			throttle = mavlink_msg_vfr_hud_get_throttle(&msg);
-			alt = (int16_t)(round(mavlink_msg_vfr_hud_get_alt(&msg)*100.0)); //m *100
+			//consider using
+			//mavlink_msg_global_position_int_get_relative_alt
+			alt = (int32_t)(round(mavlink_msg_vfr_hud_get_alt(&msg)*100.0)); //m *100
 			climb = (int16_t)(round(mavlink_msg_vfr_hud_get_climb(&msg)*100.0)); // m/s *100
-
-#ifdef DEBUG
-			Serial.print("airspeed:");
-			Serial.println(airspeed);
-			Serial.print("groundspeed:");
-			Serial.println(groundspeed);
-			Serial.print("heading:");
-			Serial.println(heading);
-			Serial.print("alt:");
-			Serial.println(alt);
-			Serial.print("climb:");
-			Serial.println(climb);
-#endif
+			PrintHUD();
 		}
 #ifdef DEBUG
 		timeDiffMavlink = micros() - timerStartMavlink;
@@ -389,7 +445,9 @@ void setUint32Value(uint8_t* buffer, uint32_t val) {
 
 
 void setTelemetryValueToBuffer(uint8_t* buffer, uint8_t sensorType, uint8_t length) {
-	for (uint8_t i = 0; i < length; i++) { 
+	uint8_t i = 0;
+	uint8_t offset = 0;
+	for (i = 0; i < length; i++) { 
 #ifdef DEBUG
 		buffer[i] = baadFood[i % sizeof(baadFood)];
 #else
@@ -397,98 +455,129 @@ void setTelemetryValueToBuffer(uint8_t* buffer, uint8_t sensorType, uint8_t leng
 #endif // DEBUG
 	}
 	switch (sensorType) {
-	case IBUS_MEAS_TYPE_GPS:
-		buffer[0] = fixType;
-		buffer[1] = satellitesVisible;
-		setInt32Value(buffer + 2, lat);
-		setInt32Value(buffer + 6, lon);
-		setInt32Value(buffer + 7, altGPS);
-		break;
-	case IBUS_MEAS_TYPE_FLIGHT_MODE:
-		buffer[0] = LBYTE(flightMode);
-		buffer[1] = HBYTE(flightMode);
-		break;
-	case IBUS_MEAS_TYPE_ARMED:
-		buffer[0] = motorArmed;
-		buffer[1] = 0;
-		break;
-		break;
-	case IBUS_MEAS_TYPE_GPS_LAT:
-		setInt32Value(buffer, lat);
-		break;
-	case IBUS_MEAS_TYPE_GPS_LON:
-		setInt32Value(buffer, lon);
-		break;
-	case IBUS_MEAS_TYPE_ALT:
-		//setInt32Value(buffer, altGPS);
-		buffer[0] = LBYTE(altGPS);
-		buffer[1] = HBYTE(altGPS);
-		break;
-	case IBUS_MEAS_TYPE_GPS_STATUS:
-		buffer[0] = fixType;
-		buffer[1] = satellitesVisible;
-		break;
-	case IBUS_MEAS_TYPE_GPS_DIST:
-		buffer[0] = LBYTE(dist);
-		buffer[1] = HBYTE(dist);
-		break;
-	case IBUS_MEAS_TYPE_VERTICAL_SPEED:
-		buffer[0] = LBYTE(airspeed);
-		buffer[1] = HBYTE(airspeed);
-		break;
-	case IBUS_MEAS_TYPE_ACC_X:
-		buffer[0] = LBYTE(pitch);
-		buffer[1] = HBYTE(pitch);
-		break;
-	case IBUS_MEAS_TYPE_ACC_Y:
-		buffer[0] = LBYTE(roll);
-		buffer[1] = HBYTE(roll);
-		break;
-	case IBUS_MEAS_TYPE_ACC_Z:
-		buffer[0] = LBYTE(yaw);
-		buffer[1] = HBYTE(yaw);
-		break;
-	case IBUS_MEAS_TYPE_BAT_CURR:
-		buffer[0] = LBYTE(currA);
-		buffer[1] = HBYTE(currA);
-		break;
-	case IBUS_MEAS_TYPE_CMP_HEAD:
-		buffer[0] = LBYTE(heading);
-		buffer[1] = HBYTE(heading);
-		break;
-	case IBUS_MEAS_TYPE_CLIMB_RATE:
-		buffer[0] = LBYTE(climb);
-		buffer[1] = HBYTE(climb);
-		break;
-	case IBUS_MEAS_TYPE_TEM:
-		buffer[0] = TEM_1(temperature);
-		buffer[1] = TEM_2(temperature);
-		break;
-	case IBUS_MEAS_TYPE_MOT:
-		break;
-	case IBUS_MEAS_TYPE_EXTV:
-		buffer[0] = LBYTE(voltage);
-		buffer[1] = HBYTE(voltage);
-		break;
-	case IBUS_MEAS_TYPE_PRES:
-		buffer[0] = LBYTE(pressure);
-		buffer[1] = HBYTE(pressure);
-		break;
-	case IBUS_MEAS_TYPE_ODO1:
-		break;
-	case IBUS_MEAS_TYPE_ODO2:
-		break;
-	case IBUS_MEAS_TYPE_SPE:
-		buffer[0] = LBYTE(groundspeed);
-		buffer[1] = HBYTE(groundspeed);
-		break;
-	case IBUS_MEAS_TYPE_ALT_CUSTOM:
-		buffer[0] = LBYTE(alt);
-		buffer[1] = HBYTE(alt);
-		break;
-	default:
-		break;
-	}
+#ifdef IA6B_PATCHED
+		case IBUS_MEAS_TYPE_GPS_FULL:
+			for (i = 0; i < sizeof(FULL_GPS_IDS)/ sizeof(IBUS_SENSOR_DEF); i++) {
+				setTelemetryValueToBuffer(buffer + offset, FULL_GPS_IDS[i].type, FULL_GPS_IDS[i].payloadSize);
+				offset += FULL_GPS_IDS[i].payloadSize;
+			}
+		case IBUS_MEAS_TYPE_VOLT_FULL:
+			for (i = 0; i < sizeof(FULL_VOLT_IDS) / sizeof(IBUS_SENSOR_DEF); i++) {
+				setTelemetryValueToBuffer(buffer + offset, FULL_VOLT_IDS[i].type, FULL_VOLT_IDS[i].payloadSize);
+				offset += FULL_VOLT_IDS[i].payloadSize;
+			}
+		case IBUS_MEAS_TYPE_ACC_FULL:
+			for (i = 0; i < sizeof(FULL_ACC_IDS) / sizeof(IBUS_SENSOR_DEF); i++) {
+				setTelemetryValueToBuffer(buffer + offset, FULL_ACC_IDS[i].type, FULL_ACC_IDS[i].payloadSize);
+				offset += FULL_ACC_IDS[i].payloadSize;
+			}
+			break;
+#endif
+		case IBUS_MEAS_TYPE_TEM:
+			buffer[0] = TEM_1(temperature);
+			buffer[1] = TEM_2(temperature);
+			break;
+		case IBUS_MEAS_TYPE_MOT:			
+			//RPM?!
+			break;
+		case IBUS_MEAS_TYPE_EXTV:	
+			buffer[0] = LBYTE(voltage);
+			buffer[1] = HBYTE(voltage);
+			break;
+		case IBUS_MEAS_TYPE_CELL:		
+			buffer[0] = LBYTE(voltages[0]);
+			buffer[1] = HBYTE(voltages[0]);
+			break;
+		case IBUS_MEAS_TYPE_BAT_CURR:	
+			buffer[0] = LBYTE(currA);
+			buffer[1] = HBYTE(currA);
+			break;
+		case IBUS_MEAS_TYPE_FUEL:	
+			buffer[0] = LBYTE(batteryRemaining);
+			buffer[1] = HBYTE(batteryRemaining);
+		case IBUS_MEAS_TYPE_RPM:	
+			//if armed : throttle value, battery capacity otherwise. (Blade number needs to be set to 12 in Taranis).
+			if (motorArmed) {
+				buffer[0] = LBYTE(throttle);
+				buffer[1] = HBYTE(throttle);
+			}
+			break;
+		case IBUS_MEAS_TYPE_CMP_HEAD:	
+			buffer[0] = LBYTE(heading);
+			buffer[1] = HBYTE(heading);
+			break;
+		case IBUS_MEAS_TYPE_CLIMB_RATE: 
+			buffer[0] = LBYTE(climb);
+			buffer[1] = HBYTE(climb);
+			break;
+		case IBUS_MEAS_TYPE_COG:	
+			buffer[0] = LBYTE(cog);
+			buffer[1] = HBYTE(climb);
+			break;
+		case IBUS_MEAS_TYPE_GPS_STATUS:	
+			buffer[0] = fixType;
+			buffer[1] = satellitesVisible;
+			break;
+		case IBUS_MEAS_TYPE_ACC_X:		
+			buffer[0] = LBYTE(accx);
+			buffer[1] = HBYTE(accx);
+			break;
+		case IBUS_MEAS_TYPE_ACC_Y:
+			buffer[0] = LBYTE(accy);
+			buffer[1] = HBYTE(accy);
+			break;
+		case IBUS_MEAS_TYPE_ACC_Z:		
+			buffer[0] = LBYTE(accz);
+			buffer[1] = HBYTE(accz);
+			break;
+		case IBUS_MEAS_TYPE_ROLL:	
+			buffer[0] = LBYTE(roll);
+			buffer[1] = HBYTE(roll);
+			break;
+		case IBUS_MEAS_TYPE_PITCH:	
+			buffer[0] = LBYTE(pitch);
+			buffer[1] = HBYTE(pitch);
+			break;
+		case IBUS_MEAS_TYPE_YAW:		
+			buffer[0] = LBYTE(yaw);
+			buffer[1] = HBYTE(yaw);
+			break;
+		case IBUS_MEAS_TYPE_VERTICAL_SPEED:	
+			buffer[0] = LBYTE(airspeed);
+			buffer[1] = HBYTE(airspeed);
+			break;
+		case IBUS_MEAS_TYPE_GROUND_SPEED:
+			buffer[0] = LBYTE(groundspeed);
+			buffer[1] = HBYTE(groundspeed);
+			break;
+		case IBUS_MEAS_TYPE_GPS_DIST:	
+			buffer[0] = LBYTE(dist);
+			buffer[1] = HBYTE(dist);
+			break;
+		case IBUS_MEAS_TYPE_ARMED:	
+			buffer[0] = motorArmed;
+			buffer[1] = 0;
+			break;
+		case IBUS_MEAS_TYPE_FLIGHT_MODE:	
+			buffer[0] = LBYTE(flightMode);
+			buffer[1] = HBYTE(flightMode);
+			break;
+		case IBUS_MEAS_TYPE_PRES:
+			setInt32Value(buffer, pressure);
+			break;
+		case IBUS_MEAS_TYPE_GPS_LAT:
+			setInt32Value(buffer, lat);
+			break;
+		case IBUS_MEAS_TYPE_GPS_LON:
+			setInt32Value(buffer, lon);
+		case IBUS_MEAS_TYPE_GPS_ALT:	
+			setInt32Value(buffer, altGPS);
+		case IBUS_MEAS_TYPE_ALT:			
+			setInt32Value(buffer, alt);
 
+
+		default:
+			break;
+	}
 }
 #endif

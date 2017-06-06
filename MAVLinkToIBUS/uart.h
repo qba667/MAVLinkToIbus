@@ -12,10 +12,11 @@
 #define UDRIE_on() UCSR1B |= _BV(UDRIE1)
 #define UDRIE_off() UCSR1B &= ~_BV(UDRIE1);
 
-uint8_t volatile NextIbusMessageReady = 0;
+uint8_t volatile telemetryRequest = 0;
 uint8_t volatile uartCurrentPos = 0;
 uint8_t volatile uartLength = 0;
 uint8_t* txPtr = 0;
+
 void initSerial() { //serial 1 more control
 	UBRR1H = UBRRH_VALUE;
 	UBRR1L = UBRRL_VALUE;
@@ -28,7 +29,7 @@ void initSerial() { //serial 1 more control
 	UCSR1B = _BV(RXEN1) | _BV(TXEN1);   /* Enable RX and TX */
 	uartCurrentPos = 0;
 	uartLength = 0;
-	NextIbusMessageReady = 0;
+	telemetryRequest = 0;
 	txPtr = 0;
 	RXCIE_on();
 }
@@ -36,10 +37,12 @@ void initSerial() { //serial 1 more control
 void usart_send(uint8_t* dataPtr, uint8_t len)
 {
 	if (len <= 0 || dataPtr == 0) return;
+  pinMode(LED_BUILTIN_TX, OUTPUT);
+  digitalWrite(LED_BUILTIN_TX, LOW);
 	txPtr = dataPtr;
 	uartCurrentPos = 0;
 	uartLength = len;
-	NextIbusMessageReady = 0;
+	telemetryRequest = 0;
 	cli();//disable interrupts
 	UCSR1B = _BV(TXEN1) | _BV(UDRIE1);   /* TX only with interrupt*/
 	sei();//enable interrupts
@@ -48,7 +51,7 @@ void usart_send(uint8_t* dataPtr, uint8_t len)
 //USART RX interrupt
 ISR(USART1_RX_vect)
 {
-	NextIbusMessageReady = ibusRXByte(UDR1);
+	telemetryRequest = ibusRXByte(UDR1);
 }
 
 //USART - empty UDR1 - data can be send
@@ -62,6 +65,7 @@ ISR(USART1_UDRE_vect)
 		uartLength = uartCurrentPos = 0;
 		txPtr = 0;
 		UCSR1B = _BV(RXEN1) | _BV(RXCIE1);   /* Enable RX so we can receive next frame*/
+    pinMode(LED_BUILTIN_TX, INPUT);
 	}
 }
 #endif // !TELEMETRY_UART

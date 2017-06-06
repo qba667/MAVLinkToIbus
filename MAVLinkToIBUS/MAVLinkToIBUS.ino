@@ -25,79 +25,88 @@
 #include "IBUSTelemetry.h"
 #include "MAVLinkTelemetry.h"
 #include "uart.h"
-
+#include "ppm.h"
+//TIMERS
+//timer0 software Sketch timer functions, like __delay()__, __millis()__ and __micros()__
+//timer1 AltSerial 16 bit timer T1
+//timer3 time mesurment for telemetry
+//timer4 PPM
 
 void timerInit() {
-  noInterrupts(); // disable all interrupts
-  //1472uS
-  TCCR3A = 0;
-  TCCR3B = 0;
-  TCNT3 = 0;
-  // //1472uS
-  //OCR3A = 0x016F;
-  //712uS
-  OCR3A = 0x00B1;
-  TCCR3B |= (1 << WGM32); // CTC mode
-  TCCR3B |= (1 << CS31)  | (1 << CS30); // 64 prescale
-  TIMSK3 |= (1 << OCIE3A); // enable timer compare interrupt
-  interrupts(); // enable all interrupts
+	noInterrupts(); // disable all interrupts
+	//1472uS
+	TCCR4A = 0; //normal port mode
+	TCCR4B = 0;
+	TCNT4 = 0;
+	// //1472uS
+	//OCR3A = 0x016F;
+	//712uS
+	OCR4A = 0xB1;
+	//TCCR4B |= (1 << WGM32); // CTC mode
+	TCCR4B |=  (1 << CS42) |(1 << CS41) | (1 << CS40); // 64 prescale
+	TIMSK4 |= (1 << OCIE4A); // enable timer compare interrupt
+	interrupts(); // enable all interrupts
 }
 void setup() {
-  initSerial();
-  timerInit();
-  mavlinkTelemetryInit();
-  Serial.begin(9600);
-  Serial.println("Setup done");
+	Serial.begin(9600);
+	initSerial();
+	timerInit();
+	mavlinkTelemetryInit();
+  pinMode(LED_BUILTIN_RX, INPUT);
+  pinMode(LED_BUILTIN_TX, INPUT);
+  setupPpm();
 }
-#define WAITING_FOR_IBUS_FRAME			1
-#define PROCESSING_BETWEEN_IBUS_RX_TX	2
-#define IBUS_TX							3
-unsigned long timerStart = micros();
-unsigned long timeDiff = 0;
-int8_t volatile state = WAITING_FOR_IBUS_FRAME;
 
+#define WAITING_FOR_TELEMETRY			1
+#define TELEMETRY_RESPONSE_DELAY		2
+#define IBUS_TX							3
+
+int8_t volatile state = WAITING_FOR_TELEMETRY;
 
 void waitFor(uint16_t value) {
 	noInterrupts();
-	TCNT3 = 0;
-	OCR3A = value; 
+	TCNT4 = 0;
+  TC4H = (uint8_t)(value >> 8);
+	OCR4A = (uint8_t)(value & 0xff);
 	interrupts(); // enable all interrupts
 }
+//RX - channel
+//TX - telemetry
 
 void loop() {
-  state = 1;
-  while (true) {
-    switch (state) {
-      case WAITING_FOR_IBUS_FRAME:
-		if (NextIbusMessageReady==1) {
-			NextIbusMessageReady = 0;
-			state = PROCESSING_BETWEEN_IBUS_RX_TX;
-			//it seems to take up to 850 //should be 712 
-			//waitFor(0x00B1);
-			//so set it to 0x92 588
-			waitFor(0x90);
+	state = 1;
+	while (true) {
+		switch (state) {
+		case WAITING_FOR_TELEMETRY:
+			if (telemetryRequest == 1) {
+				telemetryRequest = 0;
+				state = TELEMETRY_RESPONSE_DELAY;
+				//it seems to take up to 850 //should be 712 
+				//waitFor(0x00B1);
+				//so set it to 0x92 588
+				waitFor(0x90);
+			}
+			handeMavlink();
+			break;
+		case TELEMETRY_RESPONSE_DELAY:
+			handeMavlink(); //hope that sine handling is not longer than 712 - longest parsing time so far 350 us
+			break;
 		}
-		handeMavlink();
-        break;
-      case PROCESSING_BETWEEN_IBUS_RX_TX:
-        handeMavlink(); //hope that sine handling is not longer than 712 - longest parsing time so far 350 us
-        break;
-    }
-  }
+	}
 }
 
 
-ISR(TIMER3_COMPA_vect) {
-	if (state == WAITING_FOR_IBUS_FRAME) {
-		if (ibusGapDetect == 0)// restart a frame
-		{
-			ibusFrameCount = 0;
-		}
+ISR(TIMER4_COMPA_vect) {
+	if (state == WAITING_FOR_TELEMETRY) {
+    pinMode(LED_BUILTIN_RX, INPUT);
+		// restart a frame
+		if (ibusGapDetect == 0) ibusFrameCount = 0;
 		ibusGapDetect = 0;
 	}
-	if (state == PROCESSING_BETWEEN_IBUS_RX_TX) {
+	if (state == TELEMETRY_RESPONSE_DELAY) {
 		ibusTX();
-		state = WAITING_FOR_IBUS_FRAME;
+		//state can be changed but data will be recieved
+		state = WAITING_FOR_TELEMETRY;
 		waitFor(0x016F);
 	}
 
