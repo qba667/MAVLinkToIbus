@@ -57,11 +57,11 @@ void setup() {
   setupPpm();
 }
 
-#define WAITING_FOR_TELEMETRY			1
+#define WAITING_FOR_IBUS_DATA			  1
 #define TELEMETRY_RESPONSE_DELAY		2
-#define IBUS_TX							3
+#define IBUS_TX							        3
 
-int8_t volatile state = WAITING_FOR_TELEMETRY;
+int8_t volatile state = WAITING_FOR_IBUS_DATA;
 
 void waitFor(uint16_t value) {
 	noInterrupts();
@@ -77,7 +77,7 @@ void loop() {
 	state = 1;
 	while (true) {
 		switch (state) {
-		case WAITING_FOR_TELEMETRY:
+		case WAITING_FOR_IBUS_DATA:
 			if (telemetryRequest == 1) {
 				telemetryRequest = 0;
 				state = TELEMETRY_RESPONSE_DELAY;
@@ -97,16 +97,19 @@ void loop() {
 
 
 ISR(TIMER4_COMPA_vect) {
-	if (state == WAITING_FOR_TELEMETRY) {
+	if (state == WAITING_FOR_IBUS_DATA) {
     pinMode(LED_BUILTIN_RX, INPUT);
 		// restart a frame
 		if (ibusGapDetect == 0) ibusFrameCount = 0;
 		ibusGapDetect = 0;
+    if(++ibusChannelDataTicks > FAIL_SAFE_AFTER_MISSING_FRAMES){
+        updateChannelData(0, false);
+    }
 	}
 	if (state == TELEMETRY_RESPONSE_DELAY) {
 		ibusTX();
 		//state can be changed but data will be recieved
-		state = WAITING_FOR_TELEMETRY;
+		state = WAITING_FOR_IBUS_DATA;
 		waitFor(0x016F);
 	}
 

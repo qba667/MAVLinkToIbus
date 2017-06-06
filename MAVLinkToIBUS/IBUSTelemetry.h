@@ -166,7 +166,7 @@ typedef struct IBUS_SENSOR {
 
 //serial specific method must be defined
 void usart_send(uint8_t* bytes, uint8_t len);
-
+uint32_t ibusChannelDataTicks = 0;
 uint8_t ibusRXBuff[IBUS_BUFFSIZE];	// IBUS frame receive buffer
 uint8_t ibusTXBuff[IBUS_BUFFSIZE];		// IBUS frame transmit buffer
 
@@ -296,6 +296,7 @@ bool ibusRXByte(uint8_t value) {
     if(ibusRXBuff[1]==IBUS_CMD_CHANNEL){ 
       pinMode(LED_BUILTIN_RX, OUTPUT);
       digitalWrite(LED_BUILTIN_RX, LOW);
+      ibusChannelDataTicks = 0;
       updateChannelData(ibusRXBuff, checkSum);
       return false; 
     }

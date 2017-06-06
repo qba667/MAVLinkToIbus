@@ -30,6 +30,7 @@ Permissions of this strong copyleft license are conditioned on making available 
 #ifndef IBUS_TO_PPM
 #define IBUS_TO_PPM
 
+#define FAIL_SAFE_AFTER_MISSING_FRAMES  5
 #define PPM_CHANS 8   
 #define IBUS_MAXCHANNELS 14
 
