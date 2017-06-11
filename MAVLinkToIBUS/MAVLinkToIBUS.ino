@@ -48,13 +48,14 @@ void timerInit() {
 	interrupts(); // enable all interrupts
 }
 void setup() {
-	Serial.begin(9600);
+	Serial.begin(115200);
 	initSerial();
 	timerInit();
 	mavlinkTelemetryInit();
   pinMode(LED_BUILTIN_RX, INPUT);
   pinMode(LED_BUILTIN_TX, INPUT);
   setupPpm();
+  Serial.println("inited");
 }
 
 #define WAITING_FOR_IBUS_DATA			  1

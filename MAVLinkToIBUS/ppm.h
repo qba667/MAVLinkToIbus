@@ -49,7 +49,7 @@ Permissions of this strong copyleft license are conditioned on making available 
 #define CH13 12
 #define CH14 13
 
-static uint16_t channelMap[IBUS_MAXCHANNELS] = { CH1, CH2, CH3, CH4, CH9, CH10, CH7, CH8, CH5, CH6, CH11, CH12, CH13, CH14 };
+static uint16_t channelMap[IBUS_MAXCHANNELS] = { CH1, CH2, CH3, CH4, CH5, CH6, CH9, CH10, CH7, CH8, CH11, CH12, CH13, CH14 };
 
 //////////////////////PPM CONFIGURATION///////////////////////////////
 ///// PPM_FrLen might be lowered a bit for higher refresh rates, as all channels
@@ -72,7 +72,7 @@ static uint16_t channelMap[IBUS_MAXCHANNELS] = { CH1, CH2, CH3, CH4, CH9, CH10, 
 #define sigPin 5  //set PPM signal digital pin on the arduino
 
 //////////////////////////////////////////////////////////////////
-static uint16_t rcFailsafe [IBUS_MAXCHANNELS] = {  1500, 1500, 950, 1500, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000 };
+static uint16_t rcFailsafe [IBUS_MAXCHANNELS] = {  1500, 1500, 950, 1500, 2000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000 };
 static uint16_t rcValue[IBUS_MAXCHANNELS] = {  1500, 1500, 950, 1500, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000 };
 volatile byte currentChannel = 0;
 void setupPpm(){  

@@ -47,6 +47,7 @@ uint16_t streamMessages[] = {
 	MAVLINK_MSG_ID_VFR_HUD,
 	MAVLINK_MSG_ID_SCALED_IMU,
 	MAVLINK_MSG_ID_BATTERY_STATUS,
+  MAVLINK_MSG_ID_GLOBAL_POSITION_INT,
 #ifdef DEBUG
 	
 	MAVLINK_MSG_ID_NAV_CONTROLLER_OUTPUT,
@@ -265,7 +266,7 @@ void PrintPos() {
 	Serial.println(pitch);
 	Serial.print("roll:");
 	Serial.println(roll);
-	Serial.print("roll:");
+	Serial.print("yaw:");
 	Serial.println(yaw);
 #endif
 }
@@ -350,16 +351,28 @@ void handeMavlink() {
 			mavlink_msg_battery_status_get_current_consumed(&msg);
 			//Remaining battery energy: (0%: 0, 100%: 100), -1: autopilot does not estimate the remaining battery
 			mavlink_msg_battery_status_get_battery_remaining(&msg);
+			PrintBattery();
 			break;
 		case MAVLINK_MSG_ID_SYS_STATUS:
 			voltage = divideBy10(mavlink_msg_sys_status_get_voltage_battery(&msg)); //in millivolts radio needs in 10*milliamperes
 			currA = mavlink_msg_sys_status_get_current_battery(&msg); //current, in 10*milliamperes (1 = 10 milliampere)
 			batteryRemaining = mavlink_msg_sys_status_get_battery_remaining(&msg); //(0%: 0, 100%: 100)
 			break;
+    case MAVLINK_MSG_ID_GLOBAL_POSITION_INT:
+      //heading = mavlink_msg_global_position_int_get_hdg(&msg);
+      alt = divideInt32By10(mavlink_msg_global_position_int_get_relative_alt(&msg));
+      //latitude = mavlink_msg_global_position_int_get_lat(&msg);
+      //longitude = mavlink_msg_global_position_int_get_lon(&msg);
+      //Serial.print("alt _GP:");
+      //Serial.println(alt);
+      break;
 		case MAVLINK_MSG_ID_GPS_RAW_INT:
 			lat = mavlink_msg_gps_raw_int_get_lat(&msg);	 // Latitude(WGS84), in degrees * 1E7
 			lon = mavlink_msg_gps_raw_int_get_lon(&msg); //Longitude  (WGS84), in degrees * 1E7
-			altGPS = divideInt32By10(mavlink_msg_gps_raw_int_get_alt(&msg)); //in m*1000 div by 100 so in m 
+     
+			altGPS = mavlink_msg_gps_raw_int_get_alt(&msg)/10;
+			//divideInt32By10(mavlink_msg_gps_raw_int_get_alt(&msg)); //in m*1000 div by 100 so in m 
+
 			fixType = mavlink_msg_gps_raw_int_get_fix_type(&msg);
 			satellitesVisible = mavlink_msg_gps_raw_int_get_satellites_visible(&msg);
 			cog = mavlink_msg_gps_raw_int_get_cog(&msg); //cog Course over ground(NOT heading, but direction of movement) in degrees * 100, 0.0..359.99 degrees.
@@ -410,7 +423,7 @@ void handeMavlink() {
 			throttle = mavlink_msg_vfr_hud_get_throttle(&msg);
 			//consider using
 			//mavlink_msg_global_position_int_get_relative_alt
-			alt = (int32_t)(round(mavlink_msg_vfr_hud_get_alt(&msg)*100.0)); //m *100
+			//alt = (int32_t)(round(mavlink_msg_vfr_hud_get_alt(&msg)*100.0)); //m *100
 			climb = (int16_t)(round(mavlink_msg_vfr_hud_get_climb(&msg)*100.0)); // m/s *100
 			PrintHUD();
 		}
@@ -429,16 +442,22 @@ uint8_t baadFood[] = { 0xBA, 0xAD, 0xF0, 0xF0 };
 #endif 
 
 void setInt32Value(uint8_t* buffer, int32_t val) {
-	buffer[0] = (val >> 24) & 0xFF;
-	buffer[1] = (val >> 16) & 0xFF;
-	buffer[2] = HBYTE(val);
-	buffer[3] = LBYTE(val);
+ buffer[0] = (uint8_t)val;
+ buffer[1] = (uint8_t)(((uint32_t)val >> 8) & 0xFF);
+ buffer[2] = (uint8_t)(((uint32_t)val >> 16) & 0xFF);
+ buffer[3] = (uint8_t)(((uint32_t)val >> 24) & 0xFF);
 }
 void setUint32Value(uint8_t* buffer, uint32_t val) {
+  /*
 	buffer[0] = (val >> 24) & 0xFF;
 	buffer[1] = (val >> 16) & 0xFF;
 	buffer[2] = HBYTE(val);
-	buffer[3] = LBYTE(val);
+	buffer[3] = LBYTE(val);*/
+ 
+  buffer[0] = (uint8_t)val;
+  buffer[1] = (uint8_t)(((uint32_t)val >> 8) & 0xFF);
+  buffer[2] = (uint8_t)(((uint32_t)val >> 16) & 0xFF);
+  buffer[3] = (uint8_t)(((uint32_t)val >> 24) & 0xFF);
 }
 
 
@@ -570,12 +589,13 @@ void setTelemetryValueToBuffer(uint8_t* buffer, uint8_t sensorType, uint8_t leng
 			break;
 		case IBUS_MEAS_TYPE_GPS_LON:
 			setInt32Value(buffer, lon);
+			break;
 		case IBUS_MEAS_TYPE_GPS_ALT:	
 			setInt32Value(buffer, altGPS);
+			break;
 		case IBUS_MEAS_TYPE_ALT:			
 			setInt32Value(buffer, alt);
-
-
+			break;
 		default:
 			break;
 	}
