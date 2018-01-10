@@ -67,6 +67,8 @@ uint8_t motorArmed = 0;
 uint16_t voltage;
 int16_t currA;
 int8_t batteryRemaining;
+int32_t current_consumed=0;
+int8_t battery_remaining=0;
 
 //MAVLINK_MSG_ID_GPS_RAW_INT
 int32_t lat;
@@ -348,9 +350,9 @@ void handeMavlink() {
 			//Battery current, in 10*milliamperes (1 = 10 milliampere), -1: autopilot does not measure the current
 			mavlink_msg_battery_status_get_current_battery(&msg);
 			//Consumed charge, in milliampere hours (1 = 1 mAh), -1: autopilot does not provide mAh consumption estimate
-			mavlink_msg_battery_status_get_current_consumed(&msg);
+			current_consumed = mavlink_msg_battery_status_get_current_consumed(&msg);
 			//Remaining battery energy: (0%: 0, 100%: 100), -1: autopilot does not estimate the remaining battery
-			mavlink_msg_battery_status_get_battery_remaining(&msg);
+			battery_remaining = mavlink_msg_battery_status_get_battery_remaining(&msg);
 			PrintBattery();
 			break;
 		case MAVLINK_MSG_ID_SYS_STATUS:
@@ -480,11 +482,13 @@ void setTelemetryValueToBuffer(uint8_t* buffer, uint8_t sensorType, uint8_t leng
 				setTelemetryValueToBuffer(buffer + offset, FULL_GPS_IDS[i].type, FULL_GPS_IDS[i].payloadSize);
 				offset += FULL_GPS_IDS[i].payloadSize;
 			}
+			break;
 		case IBUS_MEAS_TYPE_VOLT_FULL:
 			for (i = 0; i < sizeof(FULL_VOLT_IDS) / sizeof(IBUS_SENSOR_DEF); i++) {
 				setTelemetryValueToBuffer(buffer + offset, FULL_VOLT_IDS[i].type, FULL_VOLT_IDS[i].payloadSize);
 				offset += FULL_VOLT_IDS[i].payloadSize;
 			}
+			break;
 		case IBUS_MEAS_TYPE_ACC_FULL:
 			for (i = 0; i < sizeof(FULL_ACC_IDS) / sizeof(IBUS_SENSOR_DEF); i++) {
 				setTelemetryValueToBuffer(buffer + offset, FULL_ACC_IDS[i].type, FULL_ACC_IDS[i].payloadSize);
@@ -514,11 +518,27 @@ void setTelemetryValueToBuffer(uint8_t* buffer, uint8_t sensorType, uint8_t leng
 		case IBUS_MEAS_TYPE_FUEL:	
 			buffer[0] = LBYTE(batteryRemaining);
 			buffer[1] = HBYTE(batteryRemaining);
+			break;
 		case IBUS_MEAS_TYPE_RPM:	
 			//if armed : throttle value, battery capacity otherwise. (Blade number needs to be set to 12 in Taranis).
 			if (motorArmed) {
 				buffer[0] = LBYTE(throttle);
 				buffer[1] = HBYTE(throttle);
+			}
+			else{
+				/*
+				As for RPM, if you mean send the total battery capacity,
+				then you need to use current_consumed (which you don't appear to save as a variable), 
+				and then capacity=current_consumed/(100-battery_remaining).
+				If you want the remaining mAh you need current_consumed*battery_remaining/(100-battery_remaining).
+				*/
+				uint16_t capacity = 0;
+				if(current_consumed!=-1 && battery_remaining != 0){
+					if(battery_remaining == 100) 
+					capacity=current_consumed/(100-battery_remaining).
+				}
+				buffer[0] = LBYTE(capacity);
+				buffer[1] = HBYTE(capacity);
 			}
 			break;
 		case IBUS_MEAS_TYPE_CMP_HEAD:	
