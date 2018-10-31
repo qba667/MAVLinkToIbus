@@ -534,8 +534,8 @@ void setTelemetryValueToBuffer(uint8_t* buffer, uint8_t sensorType, uint8_t leng
 				*/
 				uint16_t capacity = 0;
 				if(current_consumed!=-1 && battery_remaining != 0){
-					if(battery_remaining == 100) 
-					capacity=current_consumed/(100-battery_remaining).
+					if(battery_remaining != 100) 
+					capacity=100*current_consumed/(100-battery_remaining);
 				}
 				buffer[0] = LBYTE(capacity);
 				buffer[1] = HBYTE(capacity);
